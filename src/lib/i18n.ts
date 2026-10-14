@@ -127,6 +127,7 @@ const VI: Record<string, string> = {
   "Next match": "Kết quả tiếp",
   "Close search": "Đóng tìm kiếm",
   Copy: "Sao chép",
+  Cut: "Cắt",
   Paste: "Dán",
   "Select all": "Chọn tất cả",
   "Clear terminal": "Xóa terminal",

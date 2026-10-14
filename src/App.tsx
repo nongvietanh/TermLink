@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 
 import { NavRail } from "@/components/layout/NavRail";
 import { StatusBar } from "@/components/layout/StatusBar";
+import { TextContextMenu } from "@/components/layout/TextContextMenu";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { ConfirmHost } from "@/components/ui/confirm-host";
@@ -246,6 +247,7 @@ export default function App() {
       <SnippetDialog />
       <PromptDialogs />
       <ConfirmHost />
+      <TextContextMenu />
       <Toaster
         theme={resolveTheme(theme)}
         position="bottom-right"
