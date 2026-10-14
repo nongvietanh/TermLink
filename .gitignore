@@ -1,0 +1,24 @@
+# Node
+node_modules
+dist
+*.local
+.vite
+
+# Tauri / Rust
+src-tauri/target
+src-tauri/gen/schemas
+
+# Tests
+test-results
+playwright-report
+coverage
+/e2e-app/artifacts/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.claude/
+.idea
+.DS_Store
+Thumbs.db
+*.log
