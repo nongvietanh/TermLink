@@ -50,6 +50,28 @@ export function formatDuration(ms: number): string {
   return `${sec}s`;
 }
 
+/** Human-readable byte size, e.g. "1.5 GB". */
+export function formatBytes(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let size = Math.max(0, bytes);
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${new Intl.NumberFormat(document.documentElement.lang || undefined, {
+    maximumFractionDigits: size >= 10 || unit === 0 ? (unit === 0 ? 0 : 1) : 2,
+  }).format(size)} ${units[unit]}`;
+}
+
+/** Network rate in bits per second, e.g. "12.5 Mb/s". Null renders as a dash. */
+export function formatBitRate(bytesPerSecond: number | null | undefined): string {
+  if (bytesPerSecond == null) return "—";
+  const megabits = (bytesPerSecond * 8) / 1_000_000;
+  if (megabits >= 1) return `${megabits.toFixed(2)} Mb/s`;
+  return `${(megabits * 1000).toFixed(0)} Kb/s`;
+}
+
 /** user@host:port, omitting the default SSH port. */
 export function endpointLabel(username: string, host: string, port: number): string {
   const h = host.includes(":") ? `[${host}]` : host;

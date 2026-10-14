@@ -15,6 +15,34 @@ import type {
 
 export type Prompt = HostKeyPromptEvent | AuthPromptEvent;
 
+/** One point in a session's live metric history, used for sparklines. */
+export interface MetricSample {
+  at: number;
+  cpu: number | null;
+  memPercent: number;
+  diskPercent: number;
+  rx: number | null;
+  tx: number | null;
+}
+
+/** How many samples of live metric history to keep per session (~5 min at 5s). */
+export const METRIC_HISTORY_LIMIT = 60;
+
+/** Appends a metric sample to a capped history buffer. */
+export function pushMetricSample(history: MetricSample[], m: HostMetrics): MetricSample[] {
+  const sample: MetricSample = {
+    at: Date.now(),
+    cpu: m.cpuPercent,
+    memPercent: m.memoryTotalBytes > 0 ? (m.memoryUsedBytes / m.memoryTotalBytes) * 100 : 0,
+    diskPercent: m.diskTotalBytes > 0 ? (m.diskUsedBytes / m.diskTotalBytes) * 100 : 0,
+    rx: m.networkRxBytesPerSecond,
+    tx: m.networkTxBytesPerSecond,
+  };
+  const next = history.length >= METRIC_HISTORY_LIMIT ? history.slice(1) : history.slice();
+  next.push(sample);
+  return next;
+}
+
 export interface SessionTab {
   /** Stable UI key; survives reconnects (the backend session id changes). */
   key: string;
@@ -30,6 +58,7 @@ export interface SessionTab {
   message: string | null;
   info: ConnectionInfo | null;
   metrics: HostMetrics | null;
+  metricsHistory: MetricSample[];
   metricsUnavailable: boolean;
   error: AppError | null;
   exit: { code: number | null; signal: string | null } | null;

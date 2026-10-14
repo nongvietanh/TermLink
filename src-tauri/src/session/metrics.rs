@@ -95,13 +95,20 @@ pub fn parse_linux_snapshot(output: &[u8]) -> Option<LinuxSnapshot> {
             if interface.contains('|') || interface.trim().eq_ignore_ascii_case("lo") {
                 continue;
             }
-            let values = counters
+            // Only `/proc/net/dev` interface lines have a full row of numeric
+            // counters. Other colon lines (e.g. `/proc/meminfo` entries like
+            // "Buffers:  12345 kB") are not interfaces and are skipped, not
+            // treated as a parse failure — otherwise one such line would discard
+            // the whole sample and metrics would never appear on a real server.
+            let Ok(values) = counters
                 .split_whitespace()
                 .map(str::parse::<u64>)
                 .collect::<Result<Vec<_>, _>>()
-                .ok()?;
+            else {
+                continue;
+            };
             if values.len() < 9 {
-                return None;
+                continue;
             }
             network_rx_bytes = network_rx_bytes.saturating_add(values[0]);
             network_tx_bytes = network_tx_bytes.saturating_add(values[8]);
@@ -210,6 +217,50 @@ Filesystem 1024-blocks Used Available Capacity Mounted on\n\
         assert_eq!(metrics.cpu_percent, Some(66.66666666666666));
         assert_eq!(metrics.network_rx_bytes_per_second, Some(600.0));
         assert_eq!(metrics.network_tx_bytes_per_second, Some(1_200.0));
+    }
+
+    #[test]
+    fn parses_realistic_full_meminfo_and_multiple_interfaces() {
+        // A real server sends a full /proc/meminfo and several interfaces. The
+        // extra "Name: NN kB" lines must not be mistaken for interface counters
+        // and must not discard the whole sample.
+        let real = "cpu  100 10 50 800 40 0 5 0 0 0\n\
+cpu0 50 5 25 400 20 0 2 0 0 0\n\
+intr 123456 0 0 0\n\
+ctxt 987654\n\
+btime 1700000000\n\
+processes 54321\n\
+procs_running 1\n\
+procs_blocked 0\n\
+MemTotal:        1986000 kB\n\
+MemFree:          120000 kB\n\
+MemAvailable:     580000 kB\n\
+Buffers:           45000 kB\n\
+Cached:           760000 kB\n\
+SwapCached:            0 kB\n\
+SwapTotal:             0 kB\n\
+SwapFree:              0 kB\n\
+Dirty:               120 kB\n\
+HugePages_Total:       0\n\
+Hugepagesize:       2048 kB\n\
+Inter-|   Receive                                                |  Transmit\n\
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n\
+    lo:  5000     50    0    0    0     0          0         0     5000     50    0    0    0     0       0          0\n\
+  ens5: 300000   1000    0    0    0     0          0         0   150000    900    0    0    0     0       0          0\n\
+ eth0:  100000    500    0    0    0     0          0         0    50000    400    0    0    0     0       0          0\n\
+3600.50 3500.00\n\
+Filesystem     1024-blocks    Used Available Capacity Mounted on\n\
+/dev/root          8065444 2000000   5733000      26% /\n";
+        let sample = parse_linux_snapshot(real.as_bytes()).expect("real sample must parse");
+        let metrics = calculate_metrics(None, sample, Duration::from_secs(5));
+        assert_eq!(metrics.memory_total_bytes, 1_986_000 * 1024);
+        assert_eq!(metrics.memory_used_bytes, (1_986_000 - 580_000) * 1024);
+        assert_eq!(metrics.disk_total_bytes, 8_065_444 * 1024);
+        assert_eq!(metrics.disk_used_bytes, 2_000_000 * 1024);
+        assert_eq!(metrics.uptime_seconds, 3_600);
+        // lo is excluded; ens5 + eth0 rx/tx are summed.
+        assert_eq!(sample.network_rx_bytes, 300_000 + 100_000);
+        assert_eq!(sample.network_tx_bytes, 150_000 + 50_000);
     }
 
     #[test]

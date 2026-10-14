@@ -24,8 +24,10 @@ use crate::domain::{
     CommandHistoryEntry, CommandSource, Group, GroupInput, KnownHost, SessionHistoryEntry, Snippet,
     SnippetInput,
 };
+use crate::db::transfers::TransferRecord;
 use crate::error::{AppError, AppResult};
 use crate::portability::{self, ImportSummary};
+use crate::session::sftp::{self, LocalListing, SftpListing, TransferDirection, TransferProgress};
 use crate::session::shells::{self, ShellInfo};
 use crate::session::ssh::SshTarget;
 use crate::session::{
@@ -328,6 +330,11 @@ pub async fn snippet_delete(state: Cmd<'_>, id: String) -> AppResult<()> {
     db::snippets::delete(&state.db, &v::id("Snippet", &id)?)
 }
 
+#[tauri::command]
+pub async fn snippets_restore_defaults(state: Cmd<'_>) -> AppResult<Vec<Snippet>> {
+    db::snippets::restore_defaults(&state.db)
+}
+
 // ---------------------------------------------------------------------------
 // History
 
@@ -570,4 +577,151 @@ pub async fn command_history_record(
     let profile_id = profile_id.map(|p| v::id("Profile", &p)).transpose()?;
     let label = v::text("Target", &target_label, 200)?;
     db::history::record_command(&state.db, profile_id.as_deref(), &label, &command, source)
+}
+
+// ---------------------------------------------------------------------------
+// SFTP file transfers
+//
+// All remote operations reuse an existing, connected SSH session (the SFTP
+// subsystem rides the same login). Local listing works against the user's own
+// machine. Paths are validated before use and no shell command is ever run.
+
+#[tauri::command]
+pub async fn sftp_home(state: Cmd<'_>, session_id: String) -> AppResult<String> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    bridge.realpath(".").await
+}
+
+#[tauri::command]
+pub async fn sftp_list(state: Cmd<'_>, session_id: String, path: String) -> AppResult<SftpListing> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    let path = sftp::validate_remote_path(&path)?;
+    bridge.list(&path).await
+}
+
+#[tauri::command]
+pub async fn sftp_realpath(
+    state: Cmd<'_>,
+    session_id: String,
+    path: String,
+) -> AppResult<String> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    let path = sftp::validate_remote_path(&path)?;
+    bridge.realpath(&path).await
+}
+
+#[tauri::command]
+pub async fn sftp_mkdir(state: Cmd<'_>, session_id: String, path: String) -> AppResult<()> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    let path = sftp::validate_remote_path(&path)?;
+    bridge.make_dir(&path).await
+}
+
+#[tauri::command]
+pub async fn sftp_rename(
+    state: Cmd<'_>,
+    session_id: String,
+    from: String,
+    to: String,
+) -> AppResult<()> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    let from = sftp::validate_remote_path(&from)?;
+    let to = sftp::validate_remote_path(&to)?;
+    bridge.rename(&from, &to).await
+}
+
+#[tauri::command]
+pub async fn sftp_delete(
+    state: Cmd<'_>,
+    session_id: String,
+    path: String,
+    recursive: bool,
+) -> AppResult<()> {
+    let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
+    let path = sftp::validate_remote_path(&path)?;
+    bridge.remove(&path, recursive).await
+}
+
+#[tauri::command]
+pub async fn local_home() -> AppResult<String> {
+    sftp::local_home()
+}
+
+#[tauri::command]
+pub async fn local_list(path: String) -> AppResult<LocalListing> {
+    let path = sftp::validate_local_path(&path)?;
+    tauri::async_runtime::spawn_blocking(move || sftp::local_list(&path))
+        .await
+        .map_err(|_| AppError::internal("Listing the folder was interrupted"))?
+}
+
+#[tauri::command]
+pub async fn transfer_start(
+    state: Cmd<'_>,
+    session_id: String,
+    transfer_id: String,
+    direction: TransferDirection,
+    local_path: String,
+    remote_path: String,
+    on_progress: Channel<TransferProgress>,
+) -> AppResult<u64> {
+    let session_id = v::id("Session", &session_id)?;
+    let transfer_id = v::id("Transfer", &transfer_id)?;
+    let remote = sftp::validate_remote_path(&remote_path)?;
+    let local = sftp::validate_local_path(&local_path)?;
+    let bridge = state.sessions.sftp(&session_id)?;
+
+    // Registering the id reserves a cancellation token and rejects duplicates.
+    let token = state.sessions.register_transfer(&transfer_id)?;
+    let started_at = db::now_ms();
+    let progress = move |p: TransferProgress| {
+        let _ = on_progress.send(p);
+    };
+    let result = match direction {
+        TransferDirection::Download => bridge.download(&remote, &local, &token, progress).await,
+        TransferDirection::Upload => bridge.upload(&local, &remote, &token, progress).await,
+    };
+    state.sessions.finish_transfer(&transfer_id);
+
+    let (status, transferred, error) = match &result {
+        Ok(n) => ("completed", *n, None),
+        Err(e) if e.kind == crate::error::ErrorKind::Cancelled => ("cancelled", 0, None),
+        Err(e) => ("failed", 0, Some(e.message.clone())),
+    };
+    let _ = db::transfers::record(
+        &state.db,
+        db::transfers::NewTransfer {
+            profile_id: bridge.profile_id.as_deref(),
+            direction: direction.as_str(),
+            local_path: &local.to_string_lossy(),
+            remote_path: &remote,
+            size_bytes: (status == "completed").then_some(transferred as i64),
+            transferred_bytes: transferred as i64,
+            status,
+            error: error.as_deref(),
+            started_at,
+        },
+    );
+    result
+}
+
+#[tauri::command]
+pub async fn transfer_cancel(state: Cmd<'_>, transfer_id: String) -> AppResult<()> {
+    state
+        .sessions
+        .cancel_transfer(&v::id("Transfer", &transfer_id)?);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn transfer_history_list(
+    state: Cmd<'_>,
+    limit: Option<u32>,
+) -> AppResult<Vec<TransferRecord>> {
+    db::transfers::list(&state.db, limit.unwrap_or(200))
+}
+
+#[tauri::command]
+pub async fn transfer_history_clear(state: Cmd<'_>) -> AppResult<()> {
+    db::transfers::clear(&state.db)
 }

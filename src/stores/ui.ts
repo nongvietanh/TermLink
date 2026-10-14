@@ -7,6 +7,7 @@ export type View =
   | "connections"
   | "groups"
   | "credentials"
+  | "monitor"
   | "forwarding"
   | "transfers"
   | "snippets"
@@ -19,6 +20,7 @@ export const VIEWS: View[] = [
   "connections",
   "groups",
   "credentials",
+  "monitor",
   "forwarding",
   "transfers",
   "snippets",

@@ -69,6 +69,10 @@ pub fn run() {
                 e
             })?);
             db::history::close_dangling_sessions(&db)?;
+            // Ship a useful starter snippet library on first run (one-time).
+            if let Err(e) = db::snippets::seed_defaults_once(&db) {
+                log::warn!("could not seed default snippets: {e}");
+            }
             let secrets: Arc<dyn SecretStore> = Arc::new(KeyringStore::new(CREDENTIAL_SERVICE));
             let sessions = session::SessionManager::new(db.clone(), secrets.clone());
             log::info!(
@@ -109,6 +113,7 @@ pub fn run() {
             commands::snippet_create,
             commands::snippet_update,
             commands::snippet_delete,
+            commands::snippets_restore_defaults,
             commands::session_history_list,
             commands::session_history_clear,
             commands::command_history_list,
@@ -123,6 +128,18 @@ pub fn run() {
             commands::session_respond,
             commands::session_close,
             commands::sessions_list,
+            commands::sftp_home,
+            commands::sftp_list,
+            commands::sftp_realpath,
+            commands::sftp_mkdir,
+            commands::sftp_rename,
+            commands::sftp_delete,
+            commands::local_home,
+            commands::local_list,
+            commands::transfer_start,
+            commands::transfer_cancel,
+            commands::transfer_history_list,
+            commands::transfer_history_clear,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build TermLink");

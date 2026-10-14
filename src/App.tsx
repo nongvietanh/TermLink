@@ -19,10 +19,12 @@ import { CredentialsView } from "@/features/credentials/CredentialsView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { GroupsView } from "@/features/groups/GroupsView";
 import { HistoryView } from "@/features/history/HistoryView";
+import { MonitorView } from "@/features/monitor/MonitorView";
 import { CommandPalette } from "@/features/palette/CommandPalette";
 import { PlannedView } from "@/features/planned/PlannedView";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { SnippetDialog, SnippetsView } from "@/features/snippets/SnippetsView";
+import { TransfersView } from "@/features/transfers/TransfersView";
 import { closeAll } from "@/features/terminal/controller";
 import { PromptDialogs } from "@/features/terminal/PromptDialogs";
 import { applySettingsToAll } from "@/features/terminal/registry";
@@ -104,10 +106,12 @@ function MainView({ view }: { view: View }) {
       return <GroupsView />;
     case "credentials":
       return <CredentialsView />;
+    case "monitor":
+      return <MonitorView />;
     case "forwarding":
       return <PlannedView feature="forwarding" />;
     case "transfers":
-      return <PlannedView feature="transfers" />;
+      return <TransfersView />;
     case "snippets":
       return <SnippetsView />;
     case "history":

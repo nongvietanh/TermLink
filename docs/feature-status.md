@@ -24,10 +24,22 @@ Updated 14 October 2026. “Done” means the code is implemented in the first m
 
 | Feature                                            | Status  | Notes                                                                               |
 | -------------------------------------------------- | ------- | ----------------------------------------------------------------------------------- |
-| SFTP file browser, transfer queue and cancellation | Planned | UI is labeled unavailable; no fake operations.                                      |
+| SFTP file browser, transfer queue and cancellation | Code done | Dual-pane browser, streaming upload/download with progress/cancel/retry, remote mkdir/rename/delete, transfer history. Shares the SSH login. Rust compile + SFTP integration test still pending (see below). |
 | SSH local/remote/dynamic forwarding                | Planned | UI is labeled unavailable.                                                          |
 | RDP and VNC                                        | Planned | No implementation selected; evaluate native-client integration and licensing first. |
 | Cross-platform release validation                  | Planned | macOS and Linux need CI and platform-specific credential/PTY checks.                |
+
+## Added in this change set
+
+- **SFTP file transfers** (`session/sftp.rs`, `db/transfers.rs`, `features/transfers/`): the SFTP subsystem rides the existing authenticated SSH connection; streaming engine, cancellation, queue, history, and a dual-pane browser with drag-and-drop.
+- **Starter command notes**: a curated, non-destructive snippet library seeded once on first run, with a "Starter commands" restore action.
+- **Live server status view** (`features/monitor/`): per-server CPU/RAM/disk/network with sparklines, built on the existing 5-second metrics stream.
+- **Linux build**: `bundle.targets` set to `"all"` with deb/rpm deps plus a `.github/workflows/build.yml` matrix for Linux/Windows/macOS.
+- **Paste focus fix**: the terminal is refocused after a menu/confirmed paste so Enter is no longer dropped.
+
+### Pending verification
+
+The frontend was verified here (typecheck, ESLint, 63 Vitest tests), but **no Rust toolchain was available in this environment**, so the Rust backend was not compiled. Before release, on a Rust-capable machine or CI, run: `cargo build`, `cargo test --manifest-path src-tauri/Cargo.toml`, `cargo clippy --all-targets`, an SFTP integration test against a real server (the in-repo `dev_ssh_server` has no SFTP subsystem), and `npm run app:build` on Linux for the deb/rpm/AppImage bundles.
 
 ## Verification run on Windows
 

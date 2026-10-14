@@ -41,6 +41,7 @@ interface LibraryState {
   createSnippet: (input: SnippetInput) => Promise<Snippet>;
   updateSnippet: (id: string, input: SnippetInput) => Promise<Snippet>;
   deleteSnippet: (id: string) => Promise<void>;
+  restoreDefaultSnippets: () => Promise<number>;
 
   deleteKnownHost: (id: number) => Promise<void>;
 }
@@ -138,6 +139,12 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   deleteSnippet: async (id) => {
     await api.snippetDelete(id);
     set({ snippets: get().snippets.filter((s) => s.id !== id) });
+  },
+  restoreDefaultSnippets: async () => {
+    const before = get().snippets.length;
+    const snippets = await api.snippetsRestoreDefaults();
+    set({ snippets });
+    return Math.max(0, snippets.length - before);
   },
 
   deleteKnownHost: async (id) => {

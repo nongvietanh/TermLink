@@ -18,6 +18,7 @@ pub mod profiles;
 pub mod settings;
 pub mod snippets;
 pub mod tags;
+pub mod transfers;
 
 /// Ordered list of migrations. Index + 1 is the schema version after applying.
 const MIGRATIONS: &[(&str, &str)] = &[(

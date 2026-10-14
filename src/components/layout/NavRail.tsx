@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   FolderTree,
+  Gauge,
   History,
   KeyRound,
   LayoutDashboard,
@@ -32,8 +33,9 @@ const PRIMARY: NavItem[] = [
   { view: "connections", label: "Connections", icon: Server },
   { view: "groups", label: "Groups", icon: FolderTree },
   { view: "credentials", label: "Saved Credentials", icon: KeyRound },
+  { view: "monitor", label: "Server status", icon: Gauge },
   { view: "forwarding", label: "Port Forwarding", icon: Network, planned: true },
-  { view: "transfers", label: "File Transfers", icon: ArrowLeftRight, planned: true },
+  { view: "transfers", label: "File Transfers", icon: ArrowLeftRight },
   { view: "snippets", label: "Snippets", icon: TextCursorInput },
   { view: "history", label: "History", icon: History },
 ];

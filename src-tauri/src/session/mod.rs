@@ -10,6 +10,7 @@
 
 pub mod local;
 pub mod metrics;
+pub mod sftp;
 pub mod shells;
 pub mod ssh;
 
@@ -271,6 +272,8 @@ pub struct SessionCtx {
     pub sink: Arc<dyn SessionSink>,
     pub prompts: Arc<Prompts>,
     pub cancel: CancellationToken,
+    /// SFTP bridge for SSH sessions; `None` for local shells.
+    pub sftp: Option<Arc<sftp::SftpBridge>>,
 }
 
 impl SessionCtx {
@@ -364,6 +367,7 @@ struct SessionHandle {
     commands: mpsc::Sender<SessionCommand>,
     prompts: Arc<Prompts>,
     cancel: CancellationToken,
+    sftp: Option<Arc<sftp::SftpBridge>>,
 }
 
 /// Registry of running sessions.
@@ -371,6 +375,8 @@ pub struct SessionManager {
     db: Arc<Db>,
     secrets: Arc<dyn SecretStore>,
     sessions: Mutex<HashMap<String, SessionHandle>>,
+    /// Cancellation tokens for in-flight SFTP transfers, keyed by transfer id.
+    transfers: Mutex<HashMap<String, CancellationToken>>,
 }
 
 pub enum SessionSpec {
@@ -384,6 +390,7 @@ impl SessionManager {
             db,
             secrets,
             sessions: Mutex::new(HashMap::new()),
+            transfers: Mutex::new(HashMap::new()),
         })
     }
 
@@ -405,6 +412,11 @@ impl SessionManager {
         let (tx, rx) = mpsc::channel(256);
         let prompts = Arc::new(Prompts::default());
         let cancel = CancellationToken::new();
+        // SSH sessions get an SFTP bridge so file transfers reuse the connection.
+        let sftp = match &spec {
+            SessionSpec::Ssh(t) => Some(Arc::new(sftp::SftpBridge::new(t.profile_id.clone()))),
+            SessionSpec::Local(_) => None,
+        };
         let summary = match &spec {
             SessionSpec::Ssh(t) => SessionSummary {
                 id: id.clone(),
@@ -426,6 +438,7 @@ impl SessionManager {
                 commands: tx,
                 prompts: prompts.clone(),
                 cancel: cancel.clone(),
+                sftp: sftp.clone(),
             },
         );
         let ctx = Arc::new(SessionCtx {
@@ -435,6 +448,7 @@ impl SessionManager {
             sink,
             prompts,
             cancel,
+            sftp,
         });
         let manager = Arc::clone(self);
         tauri::async_runtime::spawn(async move {
@@ -493,6 +507,43 @@ impl SessionManager {
 
     pub fn list(&self) -> Vec<SessionSummary> {
         self.lock().values().map(|h| h.summary.clone()).collect()
+    }
+
+    /// Returns the SFTP bridge for an SSH session, or an error for local ones.
+    pub fn sftp(&self, id: &str) -> AppResult<Arc<sftp::SftpBridge>> {
+        self.with(id, |h| h.sftp.clone())?
+            .ok_or_else(|| AppError::unsupported("File transfers are only available over SSH"))
+    }
+
+    /// Registers a cancellation token for a new transfer, rejecting duplicate ids.
+    pub fn register_transfer(&self, transfer_id: &str) -> AppResult<CancellationToken> {
+        let mut map = self.transfers.lock().unwrap_or_else(|p| p.into_inner());
+        if map.contains_key(transfer_id) {
+            return Err(AppError::conflict(
+                "A transfer with this id is already running",
+            ));
+        }
+        let token = CancellationToken::new();
+        map.insert(transfer_id.to_string(), token.clone());
+        Ok(token)
+    }
+
+    pub fn finish_transfer(&self, transfer_id: &str) {
+        self.transfers
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(transfer_id);
+    }
+
+    pub fn cancel_transfer(&self, transfer_id: &str) {
+        if let Some(token) = self
+            .transfers
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .get(transfer_id)
+        {
+            token.cancel();
+        }
     }
 }
 

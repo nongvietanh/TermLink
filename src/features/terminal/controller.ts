@@ -10,7 +10,13 @@ import { api, toAppError } from "@/lib/ipc";
 import { notifyError } from "@/lib/notify";
 import { confirm } from "@/stores/confirm";
 import { useLibrary } from "@/stores/library";
-import { activeKeyOf, isLive, useSessions, type SessionTab } from "@/stores/sessions";
+import {
+  activeKeyOf,
+  isLive,
+  pushMetricSample,
+  useSessions,
+  type SessionTab,
+} from "@/stores/sessions";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
 
@@ -96,7 +102,7 @@ async function copyText(text: string) {
   }
 }
 
-async function handlePaste(text: string, paste: (t: string) => void) {
+async function handlePaste(key: string, text: string, paste: (t: string) => void) {
   const { confirmMultilinePaste } = useSettings.getState().settings.safety;
   if (confirmMultilinePaste && /\r|\n/.test(text.trim())) {
     const lines = text.trim().split(/\r\n|\r|\n/).length;
@@ -106,9 +112,17 @@ async function handlePaste(text: string, paste: (t: string) => void) {
       detail: text.length > 4000 ? `${text.slice(0, 4000)}\n…` : text,
       confirmLabel: "Paste",
     });
-    if (!ok) return;
+    if (!ok) {
+      // Return focus even on cancel: the context menu or dialog took it away.
+      requestAnimationFrame(() => focusTerminal(key));
+      return;
+    }
   }
   paste(text);
+  // A paste triggered from a menu, or after the confirmation dialog, leaves the
+  // terminal's hidden textarea unfocused, so the next Enter would be dropped
+  // until the user clicked back in. Restore focus once the overlay has closed.
+  requestAnimationFrame(() => focusTerminal(key));
 }
 
 function ensureTerminal(key: string, kind: SessionKind, profile: Profile | null) {
@@ -116,7 +130,7 @@ function ensureTerminal(key: string, kind: SessionKind, profile: Profile | null)
   return createTerminal(key, kind, settings, profile?.terminal ?? {}, {
     onInput: (data) => sendInput(key, data),
     onResize: (cols, rows) => scheduleResize(key, cols, rows),
-    onPaste: (text, paste) => void handlePaste(text, paste),
+    onPaste: (text, paste) => void handlePaste(key, text, paste),
     onCopy: (text) => void copyText(text),
   });
 }
@@ -177,7 +191,11 @@ function handleEvent(key: string, generation: number, ev: SessionEvent) {
         .catch(() => {});
       break;
     case "metrics":
-      update(key, { metrics: ev.metrics, metricsUnavailable: false });
+      update(key, (t) => ({
+        metrics: ev.metrics,
+        metricsUnavailable: false,
+        metricsHistory: pushMetricSample(t.metricsHistory, ev.metrics),
+      }));
       break;
     case "metricsUnavailable":
       update(key, { metrics: null, metricsUnavailable: true });
@@ -197,6 +215,7 @@ function handleEvent(key: string, generation: number, ev: SessionEvent) {
         sessionId: null,
         prompts: [],
         metrics: null,
+        metricsHistory: [],
         metricsUnavailable: false,
         closedReason: ev.reason,
         state: t.state === "failed" ? "failed" : "disconnected",
@@ -264,6 +283,7 @@ export function openSession(request: OpenRequest, opts: OpenOptions): string {
     message: null,
     info: null,
     metrics: null,
+    metricsHistory: [],
     metricsUnavailable: false,
     error: null,
     exit: null,
@@ -319,6 +339,7 @@ export async function reconnect(key: string) {
     prompts: [],
     info: null,
     metrics: null,
+    metricsHistory: [],
     metricsUnavailable: false,
     connectedAt: null,
   });

@@ -466,6 +466,58 @@ const VI: Record<string, string> = {
     "Khung tệp cục bộ/từ xa có xác thực đường dẫn và xác nhận thao tác xóa",
   "Integration tests for file operations and cancellation":
     "Kiểm thử tích hợp thao tác tệp và hủy truyền",
+
+  // Starter command notes (snippets)
+  "Starter commands": "Lệnh mẫu có sẵn",
+  "Add starter commands": "Thêm lệnh mẫu có sẵn",
+  "Added starter commands": "Đã thêm lệnh mẫu",
+  "Starter commands are already in your library": "Các lệnh mẫu đã có trong thư viện của bạn",
+  "Could not add starter commands": "Không thể thêm lệnh mẫu",
+
+  // Server status monitor
+  "Live CPU, memory, disk and network for connected SSH servers.":
+    "CPU, bộ nhớ, ổ đĩa và mạng theo thời gian thực cho các máy chủ SSH đang kết nối.",
+  "Connect to a Linux server over SSH to watch its CPU, memory, disk and network here in real time.":
+    "Kết nối tới máy chủ Linux qua SSH để theo dõi CPU, bộ nhớ, ổ đĩa và mạng tại đây theo thời gian thực.",
+  server: "máy chủ",
+  servers: "máy chủ",
+  Uptime: "Thời gian hoạt động",
+  Memory: "Bộ nhớ",
+  Download: "Tải xuống",
+  Upload: "Tải lên",
+
+  // File transfers (SFTP)
+  "Upload and download files over SFTP on a connected SSH session.":
+    "Tải lên và tải xuống tệp qua SFTP trên phiên SSH đang kết nối.",
+  "Connect to a server over SSH, then return here to browse and transfer files over SFTP.":
+    "Kết nối tới máy chủ qua SSH, rồi quay lại đây để duyệt và truyền tệp qua SFTP.",
+  "Drag a file between panels, or use the arrows, to transfer it over SFTP.":
+    "Kéo tệp giữa hai khung, hoặc dùng các mũi tên, để truyền tệp qua SFTP.",
+  "This computer": "Máy này",
+  Server: "Máy chủ",
+  Refresh: "Làm mới",
+  "Parent folder": "Thư mục cha",
+  "This folder is empty": "Thư mục này trống",
+  "Upload selected": "Tải lên mục đã chọn",
+  "Download selected": "Tải xuống mục đã chọn",
+  "New folder": "Thư mục mới",
+  "Folder name": "Tên thư mục",
+  Create: "Tạo",
+  Rename: "Đổi tên",
+  "New name": "Tên mới",
+  "This permanently deletes the folder and everything inside it on the server.":
+    "Thao tác này xóa vĩnh viễn thư mục và toàn bộ nội dung bên trong trên máy chủ.",
+  "This permanently deletes the file on the server.":
+    "Thao tác này xóa vĩnh viễn tệp trên máy chủ.",
+  "Could not create the folder": "Không thể tạo thư mục",
+  "Could not rename": "Không thể đổi tên",
+  "Could not delete": "Không thể xóa",
+  Transfers: "Truyền tệp",
+  "Clear finished": "Xóa mục đã xong",
+  Completed: "Hoàn tất",
+  Cancelled: "Đã hủy",
+  Queued: "Trong hàng đợi",
+  Retry: "Thử lại",
 };
 
 export function translate(source: string, language: "english" | "vietnamese"): string {

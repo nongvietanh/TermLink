@@ -16,6 +16,7 @@ import type {
   GroupInput,
   ImportSummary,
   KnownHost,
+  LocalListing,
   OpenRequest,
   Profile,
   ProfileInput,
@@ -23,9 +24,13 @@ import type {
   SessionEvent,
   SessionHistoryEntry,
   SessionSummary,
+  SftpListing,
   ShellInfo,
   Snippet,
   SnippetInput,
+  TransferDirection,
+  TransferProgress,
+  TransferRecord,
 } from "@/domain/types";
 
 export interface SessionHandlers {
@@ -123,6 +128,7 @@ export const api = {
   snippetUpdate: (id: string, input: SnippetInput) =>
     call<Snippet>("snippet_update", { id, input }),
   snippetDelete: (id: string) => call<void>("snippet_delete", { id }),
+  snippetsRestoreDefaults: () => call<Snippet[]>("snippets_restore_defaults"),
 
   sessionHistoryList: (limit?: number) =>
     call<SessionHistoryEntry[]>("session_history_list", { limit }),
@@ -159,4 +165,36 @@ export const api = {
   sessionRespond: (id: string, requestId: string, response: PromptResponse) =>
     call<void>("session_respond", { id, requestId, response }),
   sessionClose: (id: string) => call<void>("session_close", { id }),
+
+  // SFTP file transfers (remote operations reuse a connected SSH session).
+  sftpHome: (sessionId: string) => call<string>("sftp_home", { sessionId }),
+  sftpList: (sessionId: string, path: string) =>
+    call<SftpListing>("sftp_list", { sessionId, path }),
+  sftpRealpath: (sessionId: string, path: string) =>
+    call<string>("sftp_realpath", { sessionId, path }),
+  sftpMkdir: (sessionId: string, path: string) => call<void>("sftp_mkdir", { sessionId, path }),
+  sftpRename: (sessionId: string, from: string, to: string) =>
+    call<void>("sftp_rename", { sessionId, from, to }),
+  sftpDelete: (sessionId: string, path: string, recursive: boolean) =>
+    call<void>("sftp_delete", { sessionId, path, recursive }),
+  localHome: () => call<string>("local_home"),
+  localList: (path: string) => call<LocalListing>("local_list", { path }),
+  transferStart: (
+    args: {
+      sessionId: string;
+      transferId: string;
+      direction: TransferDirection;
+      localPath: string;
+      remotePath: string;
+    },
+    onProgress: (p: TransferProgress) => void,
+  ): Promise<number> => {
+    const channel = new Channel<TransferProgress>();
+    channel.onmessage = onProgress;
+    return call<number>("transfer_start", { ...args, onProgress: channel });
+  },
+  transferCancel: (transferId: string) => call<void>("transfer_cancel", { transferId }),
+  transferHistoryList: (limit?: number) =>
+    call<TransferRecord[]>("transfer_history_list", { limit }),
+  transferHistoryClear: () => call<void>("transfer_history_clear"),
 };

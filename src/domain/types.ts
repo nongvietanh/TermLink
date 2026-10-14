@@ -311,6 +311,60 @@ export type OpenRequest =
     }
   | { kind: "local"; shellId?: string | null };
 
+// --- SFTP file transfers ------------------------------------------------
+
+export type EntryKind = "dir" | "file" | "symlink" | "other";
+
+export interface SftpEntry {
+  name: string;
+  path: string;
+  kind: EntryKind;
+  size: number;
+  modified: number | null;
+  permissions: number | null;
+}
+
+export interface SftpListing {
+  path: string;
+  entries: SftpEntry[];
+}
+
+export interface LocalEntry {
+  name: string;
+  path: string;
+  kind: EntryKind;
+  size: number;
+  modified: number | null;
+}
+
+export interface LocalListing {
+  path: string;
+  parent: string | null;
+  entries: LocalEntry[];
+}
+
+export type TransferDirection = "upload" | "download";
+
+export interface TransferProgress {
+  transferred: number;
+  total: number | null;
+  bytesPerSecond: number;
+}
+
+export interface TransferRecord {
+  id: string;
+  profileId: string | null;
+  direction: TransferDirection;
+  localPath: string;
+  remotePath: string;
+  sizeBytes: number | null;
+  transferredBytes: number;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  error: string | null;
+  startedAt: number;
+  finishedAt: number | null;
+}
+
 export type HostKeyDecision = "reject" | "accept_once" | "accept_and_save";
 
 export type PromptResponse =

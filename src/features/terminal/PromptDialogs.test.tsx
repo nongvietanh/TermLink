@@ -39,6 +39,7 @@ function withPrompt(prompt: HostKeyPromptEvent | AuthPromptEvent) {
     message: null,
     info: null,
     metrics: null,
+    metricsHistory: [],
     metricsUnavailable: false,
     error: null,
     exit: null,

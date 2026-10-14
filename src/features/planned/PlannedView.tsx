@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CheckCircle2, Circle, Network } from "lucide-react";
+import { CheckCircle2, Circle, Network } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge, Notice, PageHeader, Panel } from "@/components/ui/misc";
@@ -12,7 +12,7 @@ interface PlannedFeature {
   todo: string[];
 }
 
-const FEATURES: Record<"forwarding" | "transfers", PlannedFeature> = {
+const FEATURES: Record<"forwarding", PlannedFeature> = {
   forwarding: {
     title: "Port Forwarding",
     icon: <Network />,
@@ -30,27 +30,10 @@ const FEATURES: Record<"forwarding" | "transfers", PlannedFeature> = {
       "Integration tests against the in-process SSH test server",
     ],
   },
-  transfers: {
-    title: "File Transfers",
-    icon: <ArrowLeftRight />,
-    summary:
-      "Dual-pane SFTP browser with upload, download, drag and drop, permissions, a transfer queue with progress, cancellation and retry, and streaming of large files.",
-    done: [
-      "Database schema for transfer history (transfer_history table)",
-      "SFTP client library selected (russh-sftp, Apache-2.0)",
-    ],
-    todo: [
-      "SFTP subsystem sessions sharing the SSH connection",
-      "Streaming transfer engine (no full-file buffering) with cancellation",
-      "Transfer queue with progress, retry and history",
-      "Local/remote file panels with path validation and destructive-action confirmation",
-      "Integration tests for file operations and cancellation",
-    ],
-  },
 };
 
 /** Clearly labelled placeholder for features that are not implemented yet. */
-export function PlannedView({ feature }: { feature: "forwarding" | "transfers" }) {
+export function PlannedView({ feature }: { feature: "forwarding" }) {
   const t = useT();
   const f = FEATURES[feature];
   return (

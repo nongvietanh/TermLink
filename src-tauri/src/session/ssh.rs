@@ -67,7 +67,7 @@ struct HostKeyInfo {
     algorithm: Option<String>,
 }
 
-struct ClientHandler {
+pub(crate) struct ClientHandler {
     ctx: Arc<SessionCtx>,
     host: String,
     port: u16,
@@ -287,6 +287,10 @@ pub async fn run(
     .ok();
 
     let result = run_inner(&ctx, &target, cols, rows, commands, history_id).await;
+    // Release the SFTP subsystem and connection handle once the session ends.
+    if let Some(bridge) = &ctx.sftp {
+        bridge.shutdown().await;
+    }
     let (status, reason) = match &result {
         Ok(reason) => ("closed", reason.clone()),
         Err(e) if e.kind == ErrorKind::Cancelled => ("closed", "Disconnected".to_string()),
@@ -364,6 +368,13 @@ async fn run_inner(
     if let Err(e) = auth {
         let _ = handle.disconnect(Disconnect::ByApplication, "", "en").await;
         return Err(e);
+    }
+
+    // The connection is authenticated: share it (read-only) so SFTP transfers
+    // can open their own channel on the same login.
+    let handle = Arc::new(handle);
+    if let Some(bridge) = &ctx.sftp {
+        bridge.set_handle(handle.clone());
     }
 
     // 4. Interactive shell.

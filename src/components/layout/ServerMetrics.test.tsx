@@ -37,6 +37,7 @@ function sshTab(overrides: Partial<SessionTab> = {}): SessionTab {
       networkTxBytesPerSecond: 12_500,
       uptimeSeconds: 54 * 60 * 60,
     },
+    metricsHistory: [],
     metricsUnavailable: false,
     error: null,
     exit: null,

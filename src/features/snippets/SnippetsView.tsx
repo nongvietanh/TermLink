@@ -5,6 +5,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   TextCursorInput,
   Trash2,
 } from "lucide-react";
@@ -206,6 +207,19 @@ export function SnippetsView() {
     if (ok) await attempt(() => useLibrary.getState().deleteSnippet(s.id));
   };
 
+  const restoreDefaults = async () => {
+    try {
+      const added = await useLibrary.getState().restoreDefaultSnippets();
+      notifySuccess(
+        added > 0
+          ? `${t("Added starter commands")}: ${added}`
+          : t("Starter commands are already in your library"),
+      );
+    } catch (err) {
+      notifyError(err, t("Could not add starter commands"));
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -222,10 +236,16 @@ export function SnippetsView() {
           )
         }
         actions={
-          <Button variant="primary" onClick={() => editSnippet({ mode: "create" })}>
-            <Plus />
-            {t("New snippet")}
-          </Button>
+          <>
+            <Button variant="ghost" onClick={() => void restoreDefaults()}>
+              <Sparkles />
+              {t("Starter commands")}
+            </Button>
+            <Button variant="primary" onClick={() => editSnippet({ mode: "create" })}>
+              <Plus />
+              {t("New snippet")}
+            </Button>
+          </>
         }
       />
       <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
@@ -268,10 +288,16 @@ export function SnippetsView() {
             }
             action={
               !snippets.length && (
-                <Button variant="primary" onClick={() => editSnippet({ mode: "create" })}>
-                  <Plus />
-                  {t("New snippet")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="primary" onClick={() => editSnippet({ mode: "create" })}>
+                    <Plus />
+                    {t("New snippet")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => void restoreDefaults()}>
+                    <Sparkles />
+                    {t("Add starter commands")}
+                  </Button>
+                </div>
               )
             }
           />

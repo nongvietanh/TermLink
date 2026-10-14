@@ -10,28 +10,8 @@ import {
 } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
-import { formatDuration } from "@/lib/utils";
+import { formatBitRate as formatRate, formatBytes, formatDuration } from "@/lib/utils";
 import type { SessionTab } from "@/stores/sessions";
-
-function formatBytes(bytes: number) {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = bytes;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${new Intl.NumberFormat(document.documentElement.lang || undefined, {
-    maximumFractionDigits: size >= 10 ? 1 : 2,
-  }).format(size)} ${units[unit]}`;
-}
-
-function formatRate(bytesPerSecond: number | null) {
-  if (bytesPerSecond == null) return "—";
-  const megabits = (bytesPerSecond * 8) / 1_000_000;
-  if (megabits >= 1) return `${megabits.toFixed(2)} Mb/s`;
-  return `${(megabits * 1000).toFixed(0)} Kb/s`;
-}
 
 export function ServerMetrics({ tab }: { tab: SessionTab }) {
   const t = useT();

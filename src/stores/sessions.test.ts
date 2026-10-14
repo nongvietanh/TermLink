@@ -15,6 +15,7 @@ const tab = (key: string): SessionTab => ({
   message: null,
   info: null,
   metrics: null,
+  metricsHistory: [],
   metricsUnavailable: false,
   error: null,
   exit: null,
