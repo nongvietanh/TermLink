@@ -1,6 +1,6 @@
 [package]
 name = "termlink"
-version = "0.2.0"
+version = "0.2.1"
 description = "TermLink - remote access and server management workspace"
 authors = ["TermLink contributors"]
 license = "MIT"

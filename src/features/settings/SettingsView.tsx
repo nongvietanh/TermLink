@@ -342,11 +342,11 @@ export function SettingsView() {
                 />
               </Row>
               <Row
-                label={tr("Right-click copies or pastes")}
-                hint={tr("Off shows a context menu instead.")}
+                label={tr("Right-click pastes when no text is selected")}
+                hint={tr("Right-click selected terminal text to open the action menu.")}
               >
                 <Switch
-                  aria-label={tr("Right-click copies or pastes")}
+                  aria-label={tr("Right-click pastes when no text is selected")}
                   checked={terminalSettings.rightClickPaste}
                   onCheckedChange={(rightClickPaste) => patch("terminal", { rightClickPaste })}
                 />

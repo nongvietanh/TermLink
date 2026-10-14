@@ -16,6 +16,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::credentials::{SecretKey, SecretStore};
 use crate::db::profiles::SecretFlag;
+use crate::db::transfers::TransferRecord;
 use crate::db::{self, Db};
 use crate::domain::profile::{AuthMethod, Profile, ProfileInput, Protocol, SshOptions};
 use crate::domain::settings::AppSettings;
@@ -24,7 +25,6 @@ use crate::domain::{
     CommandHistoryEntry, CommandSource, Group, GroupInput, KnownHost, SessionHistoryEntry, Snippet,
     SnippetInput,
 };
-use crate::db::transfers::TransferRecord;
 use crate::error::{AppError, AppResult};
 use crate::portability::{self, ImportSummary};
 use crate::session::sftp::{self, LocalListing, SftpListing, TransferDirection, TransferProgress};
@@ -224,6 +224,51 @@ pub async fn profiles_import(app: AppHandle, state: Cmd<'_>) -> AppResult<Option
     let bytes = tokio::fs::read(&path).await?;
     let doc = portability::parse(&bytes)?;
     portability::import(&state.db, doc).map(Some)
+}
+
+/// Saves arbitrary text (e.g. captured terminal output) to a user-chosen file
+/// via a native save dialog. The webview never receives a filesystem path to
+/// write to; the backend owns the dialog and the write.
+#[tauri::command]
+pub async fn save_text_file(
+    app: AppHandle,
+    default_name: String,
+    content: String,
+) -> AppResult<Option<String>> {
+    const MAX_BYTES: usize = 64 * 1024 * 1024;
+    if content.len() > MAX_BYTES {
+        return Err(AppError::validation("The content is too large to save"));
+    }
+    let suggested: String = default_name
+        .chars()
+        .filter(|c| {
+            !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+        })
+        .take(120)
+        .collect();
+    let suggested = if suggested.trim().is_empty() {
+        "termlink-output.txt".to_string()
+    } else {
+        suggested
+    };
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title("Save terminal output")
+            .add_filter("Text file", &["txt", "log"])
+            .set_file_name(&suggested)
+            .blocking_save_file()
+    })
+    .await
+    .map_err(|_| AppError::internal("The file dialog failed"))?;
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+        return Ok(None);
+    };
+    let saved_path = path.to_string_lossy().into_owned();
+    tauri::async_runtime::spawn_blocking(move || std::fs::write(&path, content))
+        .await
+        .map_err(|_| AppError::internal("Could not save the file"))??;
+    Ok(Some(saved_path))
 }
 
 /// Lets the user choose a private key file with a native dialog.
@@ -600,11 +645,7 @@ pub async fn sftp_list(state: Cmd<'_>, session_id: String, path: String) -> AppR
 }
 
 #[tauri::command]
-pub async fn sftp_realpath(
-    state: Cmd<'_>,
-    session_id: String,
-    path: String,
-) -> AppResult<String> {
+pub async fn sftp_realpath(state: Cmd<'_>, session_id: String, path: String) -> AppResult<String> {
     let bridge = state.sessions.sftp(&v::id("Session", &session_id)?)?;
     let path = sftp::validate_remote_path(&path)?;
     bridge.realpath(&path).await

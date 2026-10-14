@@ -114,8 +114,13 @@ pub fn validate_remote_path(path: &str) -> AppResult<String> {
     if trimmed.len() > MAX_PATH_LEN {
         return Err(AppError::validation("The remote path is too long"));
     }
-    if trimmed.chars().any(|c| c == '\0' || (c.is_control() && c != ' ')) {
-        return Err(AppError::validation("The remote path contains invalid characters"));
+    if trimmed
+        .chars()
+        .any(|c| c == '\0' || (c.is_control() && c != ' '))
+    {
+        return Err(AppError::validation(
+            "The remote path contains invalid characters",
+        ));
     }
     Ok(trimmed.to_string())
 }
@@ -243,9 +248,7 @@ impl SftpBridge {
     /// directory by canonicalizing ".").
     pub async fn realpath(&self, path: &str) -> AppResult<String> {
         let sftp = self.session().await?;
-        sftp.canonicalize(path.to_string())
-            .await
-            .map_err(map_sftp)
+        sftp.canonicalize(path.to_string()).await.map_err(map_sftp)
     }
 
     pub async fn list(&self, path: &str) -> AppResult<SftpListing> {
@@ -421,7 +424,11 @@ where
             progress(TransferProgress {
                 transferred,
                 total,
-                bytes_per_second: if secs > 0.0 { transferred as f64 / secs } else { 0.0 },
+                bytes_per_second: if secs > 0.0 {
+                    transferred as f64 / secs
+                } else {
+                    0.0
+                },
             });
         }
     }
@@ -429,7 +436,11 @@ where
     progress(TransferProgress {
         transferred,
         total: total.or(Some(transferred)),
-        bytes_per_second: if secs > 0.0 { transferred as f64 / secs } else { 0.0 },
+        bytes_per_second: if secs > 0.0 {
+            transferred as f64 / secs
+        } else {
+            0.0
+        },
     });
     Ok(transferred)
 }
@@ -484,7 +495,10 @@ pub fn local_list(path: &Path) -> AppResult<LocalListing> {
         let Ok(item) = item else { continue };
         let name = item.file_name().to_string_lossy().into_owned();
         // symlink_metadata does not follow links, so a broken link still lists.
-        let meta = match item.metadata().or_else(|_| std::fs::symlink_metadata(item.path())) {
+        let meta = match item
+            .metadata()
+            .or_else(|_| std::fs::symlink_metadata(item.path()))
+        {
             Ok(m) => m,
             Err(_) => continue,
         };
@@ -545,7 +559,11 @@ mod tests {
     fn requires_absolute_local_paths() {
         assert!(validate_local_path("relative/path").is_err());
         assert!(validate_local_path("").is_err());
-        let abs = if cfg!(windows) { r"C:\Users\x\f.txt" } else { "/home/x/f.txt" };
+        let abs = if cfg!(windows) {
+            r"C:\Users\x\f.txt"
+        } else {
+            "/home/x/f.txt"
+        };
         assert!(validate_local_path(abs).is_ok());
     }
 

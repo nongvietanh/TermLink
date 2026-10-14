@@ -105,6 +105,7 @@ pub fn run() {
             commands::profiles_export,
             commands::profiles_import,
             commands::key_file_pick,
+            commands::save_text_file,
             commands::credential_set,
             commands::credential_delete,
             commands::known_hosts_list,

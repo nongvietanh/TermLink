@@ -335,6 +335,7 @@ export function createMockBackend(seed: Partial<MockState> = {}) {
       issues: [],
     }),
     key_file_pick: () => "C:\\Users\\tester\\.ssh\\id_ed25519",
+    save_text_file: () => "C:\\mock\\termlink-terminal.txt",
     credential_set: (a) => {
       state.secrets.set(`${a.profileId}:${a.kind}`, a.secret as string);
       const p = state.profiles.find((x) => x.id === a.profileId);

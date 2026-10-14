@@ -195,6 +195,18 @@ export function getTerminal(key: string): TerminalEntry | undefined {
   return entries.get(key);
 }
 
+/** Reads xterm's selection, including its textarea fallback during contextmenu. */
+export function getTerminalSelection(key: string): string {
+  const entry = entries.get(key);
+  if (!entry) return "";
+  const selection = entry.term.getSelection();
+  if (selection) return selection;
+
+  const input = entry.el.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
+  if (!input || input.selectionStart === input.selectionEnd) return "";
+  return input.value.slice(input.selectionStart, input.selectionEnd);
+}
+
 /** Shows the terminal inside `container` and fits it to the available space. */
 export function attachTerminal(key: string, container: HTMLElement) {
   const entry = entries.get(key);
@@ -234,6 +246,19 @@ export function fitTerminal(key: string) {
 
 export function focusTerminal(key: string) {
   entries.get(key)?.term.focus();
+}
+
+/** Returns the full terminal buffer (scrollback + screen) as plain text. */
+export function readTerminalText(key: string): string {
+  const entry = entries.get(key);
+  if (!entry) return "";
+  const buf = entry.term.buffer.active;
+  const out: string[] = [];
+  for (let i = 0; i < buf.length; i++) {
+    out.push(buf.getLine(i)?.translateToString(true) ?? "");
+  }
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out.join("\n");
 }
 
 /** Waits for the first fit (so the session starts with the right size). */

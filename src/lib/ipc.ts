@@ -114,6 +114,8 @@ export const api = {
   profilesExport: () => call<ExportResult | null>("profiles_export"),
   profilesImport: () => call<ImportSummary | null>("profiles_import"),
   keyFilePick: () => call<string | null>("key_file_pick"),
+  saveTextFile: (defaultName: string, content: string) =>
+    call<string | null>("save_text_file", { defaultName, content }),
 
   credentialSet: (profileId: string, kind: "password" | "passphrase", secret: string) =>
     call<void>("credential_set", { profileId, kind, secret }),

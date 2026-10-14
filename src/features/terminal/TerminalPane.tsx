@@ -4,9 +4,11 @@ import {
   Clipboard,
   Copy,
   Eraser,
+  Files,
   KeyRound,
   Loader2,
   RotateCw,
+  Save,
   Search,
   ShieldAlert,
   TextSelect,
@@ -23,7 +25,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/menu";
-import { notifyError } from "@/lib/notify";
+import { useT } from "@/lib/i18n";
+import { api } from "@/lib/ipc";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { SHORTCUTS, shortcutLabel } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useLibrary } from "@/stores/library";
@@ -38,6 +42,8 @@ import {
   fitTerminal,
   focusTerminal,
   getTerminal,
+  getTerminalSelection,
+  readTerminalText,
 } from "./registry";
 import { getScheme } from "./themes";
 
@@ -209,6 +215,8 @@ export function TerminalPane({
   focused: boolean;
   onFocus: () => void;
 }) {
+  const t = useT();
+  const [hasSelection, setHasSelection] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const tab = useSessions((s) => s.tabs.find((t) => t.key === tabKey));
   const findOpenFor = useUi((s) => s.findOpenFor);
@@ -242,7 +250,14 @@ export function TerminalPane({
   }, [focused, tabKey, tab?.unread]);
 
   const copy = async () => {
-    const text = getTerminal(tabKey)?.term.getSelection();
+    const text = getTerminalSelection(tabKey);
+    if (text)
+      await navigator.clipboard
+        .writeText(text)
+        .catch(() => notifyError({ kind: "internal", message: "Clipboard unavailable" }));
+  };
+  const copyAll = async () => {
+    const text = readTerminalText(tabKey);
     if (text)
       await navigator.clipboard
         .writeText(text)
@@ -261,15 +276,25 @@ export function TerminalPane({
   };
 
   const onContextMenu = (e: React.MouseEvent) => {
-    if (!settings.terminal.rightClickPaste) return;
-    // Right click: copy if text is selected, otherwise paste.
-    e.preventDefault();
-    const term = getTerminal(tabKey)?.term;
-    if (term?.hasSelection()) {
-      void copy();
-      term.clearSelection();
-    } else {
+    const selected = getTerminalSelection(tabKey).length > 0;
+    setHasSelection(selected);
+    // A selection opens the terminal action menu even when right-click paste
+    // is enabled. Empty-space right-click keeps the existing quick-paste option.
+    if (!selected && settings.terminal.rightClickPaste) {
+      e.preventDefault();
+      e.stopPropagation();
       void paste();
+    }
+  };
+
+  const saveOutput = async () => {
+    const content = readTerminalText(tabKey);
+    if (!content) return;
+    try {
+      const path = await api.saveTextFile(`${tab?.title ?? "termlink"}-terminal.txt`, content);
+      if (path) notifySuccess(t("Terminal output saved"), path);
+    } catch (err) {
+      notifyError(err, t("Could not save terminal output"));
     }
   };
 
@@ -284,7 +309,7 @@ export function TerminalPane({
       data-testid={`terminal-pane-${tab.title}`}
     >
       <ContextMenu>
-        <ContextMenuTrigger asChild disabled={settings.terminal.rightClickPaste}>
+        <ContextMenuTrigger asChild>
           <div className="relative min-h-0 flex-1 py-1.5 pl-2.5" onContextMenu={onContextMenu}>
             <div ref={hostRef} className="h-full w-full" />
           </div>
@@ -293,22 +318,26 @@ export function TerminalPane({
           <ContextMenuItem
             icon={<Copy />}
             shortcut={shortcutLabel("copy")}
+            disabled={!hasSelection}
             onSelect={() => void copy()}
           >
-            Copy
+            {t("Copy")}
+          </ContextMenuItem>
+          <ContextMenuItem icon={<Files />} onSelect={() => void copyAll()}>
+            {t("Copy all")}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Clipboard />}
             shortcut={shortcutLabel("paste")}
             onSelect={() => void paste()}
           >
-            Paste
+            {t("Paste")}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<TextSelect />}
             onSelect={() => getTerminal(tabKey)?.term.selectAll()}
           >
-            Select all
+            {t("Select all")}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
@@ -316,14 +345,17 @@ export function TerminalPane({
             shortcut={shortcutLabel("find")}
             onSelect={() => setFindOpenFor(tabKey)}
           >
-            Find…
+            {t("Find…")}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Eraser />}
             shortcut={shortcutLabel("clearTerminal")}
             onSelect={() => clearTerminal(tabKey)}
           >
-            Clear terminal
+            {t("Clear terminal")}
+          </ContextMenuItem>
+          <ContextMenuItem icon={<Save />} onSelect={() => void saveOutput()}>
+            {t("Save terminal output…")}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
