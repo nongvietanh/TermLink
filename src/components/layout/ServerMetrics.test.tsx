@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { renderUi, setupMock } from "@/test/render";
 import { useSessions, type SessionTab } from "@/stores/sessions";
 
-import { StatusBar } from "./StatusBar";
+import { ServerMetricsPanel } from "./ServerMetrics";
 
 function sshTab(overrides: Partial<SessionTab> = {}): SessionTab {
   return {
@@ -49,13 +49,14 @@ function sshTab(overrides: Partial<SessionTab> = {}): SessionTab {
   };
 }
 
-describe("server resource status", () => {
+describe("server metrics toolbar", () => {
   it("shows live CPU, memory, root disk, network and host uptime metrics", () => {
     setupMock();
     useSessions.setState({ tabs: [sshTab()], panes: ["ssh-tab", null], focusedPane: 0 });
 
-    renderUi(<StatusBar />);
+    renderUi(<ServerMetricsPanel tab={sshTab()} />);
 
+    expect(screen.getByRole("region", { name: "Server status" })).toBeInTheDocument();
     expect(screen.getByText("CPU 42%")).toBeInTheDocument();
     expect(screen.getByText(/RAM 512 MB \/ 2 GB/)).toBeInTheDocument();
     expect(screen.getByText("Disk 25%")).toBeInTheDocument();
@@ -72,8 +73,16 @@ describe("server resource status", () => {
       focusedPane: 0,
     });
 
-    renderUi(<StatusBar />);
+    renderUi(<ServerMetricsPanel tab={sshTab({ metrics: null, metricsUnavailable: true })} />);
 
     expect(screen.getByText("Metrics unavailable")).toBeInTheDocument();
+  });
+
+  it("shows a collection state while the connected server sends its first sample", () => {
+    setupMock();
+
+    renderUi(<ServerMetricsPanel tab={sshTab({ metrics: null })} />);
+
+    expect(screen.getByText("Collecting server metrics…")).toBeInTheDocument();
   });
 });

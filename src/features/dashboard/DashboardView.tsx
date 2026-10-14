@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Activity,
   Download,
   Fingerprint,
   KeyRound,
@@ -15,6 +16,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ServerMetrics } from "@/components/layout/ServerMetrics";
 import { Kbd } from "@/components/ui/kbd";
 import { EmptyState, Panel, StatusDot } from "@/components/ui/misc";
 import type { Profile } from "@/domain/types";
@@ -90,6 +92,7 @@ export function DashboardView() {
   const knownHosts = useLibrary((s) => s.knownHosts);
   const groups = useLibrary((s) => s.groups);
   const tabs = useSessions((s) => s.tabs);
+  const sshTabs = tabs.filter((tab) => tab.kind === "ssh");
   const activate = useSessions((s) => s.activate);
   const appInfo = useSettings((s) => s.appInfo);
   const favorites = profiles.filter((p) => p.favorite).slice(0, 8);
@@ -161,6 +164,59 @@ export function DashboardView() {
             onClick={() => goTo("credentials")}
           />
         </div>
+
+        <Panel className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-xs font-semibold tracking-wide text-muted uppercase">
+            <Activity className="size-3.5 text-accent" />
+            {t("Server status")}
+          </div>
+          {sshTabs.length ? (
+            <div className="divide-y divide-line">
+              {sshTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    activate(tab.key);
+                    goTo("workspace");
+                  }}
+                  className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                >
+                  <StatusDot tone={tabTone(tab)} />
+                  <span className="text-[13px] font-medium text-fg">{tab.title}</span>
+                  {tab.info && (
+                    <span className="font-mono text-[11px] text-faint">
+                      {endpointLabel(tab.info.username, tab.info.host, tab.info.port)}
+                    </span>
+                  )}
+                  <div className="w-full overflow-x-auto pl-5 text-[11px] [&_svg]:size-3.5">
+                    <ServerMetrics tab={tab} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-md bg-surface-2 p-2 text-faint">
+                  <Server className="size-4" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium text-fg">{t("No active SSH server")}</p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {t(
+                      "Server metrics are shown here and above the terminal after an SSH connection.",
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant="secondary" onClick={quickConnect}>
+                <Zap />
+                {t("Quick connect")}
+              </Button>
+            </div>
+          )}
+        </Panel>
 
         {profiles.length === 0 ? (
           <Panel>

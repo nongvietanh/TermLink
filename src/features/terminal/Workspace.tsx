@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
 import { Badge, StatusDot } from "@/components/ui/misc";
+import { ServerMetricsPanel } from "@/components/layout/ServerMetrics";
 import { Tooltip } from "@/components/ui/tooltip";
 import { findInActive, newConnection, quickConnect, setSplit } from "@/lib/actions";
 import { SHORTCUTS, shortcutLabel } from "@/lib/shortcuts";
@@ -515,6 +516,7 @@ export function Workspace() {
       ) : (
         <>
           {active && <SessionToolbar tab={active} />}
+          {active?.kind === "ssh" && <ServerMetricsPanel tab={active} />}
           <div className="min-h-0 flex-1">
             {split === "single" ? (
               <Pane index={0} />
