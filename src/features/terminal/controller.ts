@@ -176,6 +176,12 @@ function handleEvent(key: string, generation: number, ev: SessionEvent) {
         .reloadProfiles()
         .catch(() => {});
       break;
+    case "metrics":
+      update(key, { metrics: ev.metrics, metricsUnavailable: false });
+      break;
+    case "metricsUnavailable":
+      update(key, { metrics: null, metricsUnavailable: true });
+      break;
     case "exit":
       update(key, { exit: { code: ev.code, signal: ev.signal } });
       break;
@@ -190,6 +196,8 @@ function handleEvent(key: string, generation: number, ev: SessionEvent) {
       update(key, (t) => ({
         sessionId: null,
         prompts: [],
+        metrics: null,
+        metricsUnavailable: false,
         closedReason: ev.reason,
         state: t.state === "failed" ? "failed" : "disconnected",
       }));
@@ -255,6 +263,8 @@ export function openSession(request: OpenRequest, opts: OpenOptions): string {
     state: "connecting",
     message: null,
     info: null,
+    metrics: null,
+    metricsUnavailable: false,
     error: null,
     exit: null,
     closedReason: null,
@@ -308,6 +318,8 @@ export async function reconnect(key: string) {
     closedReason: null,
     prompts: [],
     info: null,
+    metrics: null,
+    metricsUnavailable: false,
     connectedAt: null,
   });
   writeToTerminal(key, `\r\n${dim("── Reconnecting… ──")}\r\n`);

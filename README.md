@@ -16,6 +16,7 @@ TermLink is a desktop app for SSH terminals and connection management, built wit
 | xterm.js terminal: streaming, resize, search, copy/paste, scrollback, themes, split view, tabs, reconnect                             | Done                                                |
 | Vietnamese interface (default, with English option), bundled Noto Sans Mono Latin Extended, Vietnamese IME input                      | Done                                                |
 | Local terminal (ConPTY / PTY)                                                                                                         | Done                                                |
+| Live SSH server status: CPU, RAM, root disk, network throughput and host uptime (Linux)                                               | Done (5-second samples; no remote command input)    |
 | Snippets (explicit Insert/Run only, destructive commands confirmed), command and session history, command palette, settings           | Done                                                |
 | SFTP, port forwarding, RDP, VNC                                                                                                       | **Planned.** The UI shows them as unavailable.      |
 

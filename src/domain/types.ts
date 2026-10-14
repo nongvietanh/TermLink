@@ -248,6 +248,17 @@ export interface ConnectionInfo {
   shell: string | null;
 }
 
+export interface HostMetrics {
+  cpuPercent: number | null;
+  memoryUsedBytes: number;
+  memoryTotalBytes: number;
+  diskUsedBytes: number;
+  diskTotalBytes: number;
+  networkRxBytesPerSecond: number | null;
+  networkTxBytesPerSecond: number | null;
+  uptimeSeconds: number;
+}
+
 export interface PromptField {
   label: string;
   echo: boolean;
@@ -282,6 +293,8 @@ export type SessionEvent =
   | { type: "promptClosed"; requestId: string }
   | { type: "banner"; text: string }
   | { type: "connected"; info: ConnectionInfo }
+  | { type: "metrics"; metrics: HostMetrics }
+  | { type: "metricsUnavailable" }
   | { type: "exit"; code: number | null; signal: string | null }
   | { type: "error"; error: AppError }
   | { type: "closed"; reason: string };

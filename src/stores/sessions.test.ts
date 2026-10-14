@@ -14,6 +14,8 @@ const tab = (key: string): SessionTab => ({
   state: "connecting",
   message: null,
   info: null,
+  metrics: null,
+  metricsUnavailable: false,
   error: null,
   exit: null,
   closedReason: null,

@@ -38,6 +38,8 @@ function withPrompt(prompt: HostKeyPromptEvent | AuthPromptEvent) {
     state: "verifying",
     message: null,
     info: null,
+    metrics: null,
+    metricsUnavailable: false,
     error: null,
     exit: null,
     closedReason: null,

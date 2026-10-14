@@ -22,6 +22,7 @@ use termlink_lib::domain::profile::{
     AuthMethod, ProfileInput, Protocol, SshOptions, TerminalPrefs,
 };
 use termlink_lib::error::ErrorKind;
+use termlink_lib::session::metrics::LINUX_METRICS_COMMAND;
 use termlink_lib::session::ssh::SshTarget;
 use termlink_lib::session::{
     HostKeyDecision, PromptResponse, SessionEvent, SessionManager, SessionSink, SessionSpec,
@@ -29,6 +30,7 @@ use termlink_lib::session::{
 
 const PASSWORD: &str = "correct horse battery staple";
 const USER: &str = "tester";
+const LINUX_METRICS_FIXTURE: &[u8] = b"cpu 100 10 50 800 40 0 0 0 4 1\nMemTotal: 2048000 kB\nMemAvailable: 1024000 kB\nInter-| Receive | Transmit\n face |bytes packets errs drop fifo frame compressed multicast|bytes packets errs drop fifo colls carrier compressed\n eth0: 1000 0 0 0 0 0 0 0 2000 0 0 0 0 0 0 0\n12345.67 12.34\nFilesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 100000 25000 75000 25% /\n";
 
 // ---------------------------------------------------------------------------
 // Test SSH server
@@ -142,6 +144,24 @@ impl server::Handler for TestHandler {
             return Ok(());
         }
         session.data(channel, Bytes::from_static(b"WELCOME \xe2\x9c\x93\r\n"))?;
+        Ok(())
+    }
+
+    async fn exec_request(
+        &mut self,
+        channel: ChannelId,
+        command: &[u8],
+        session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        if command == LINUX_METRICS_COMMAND.as_bytes() {
+            session.channel_success(channel)?;
+            session.data(channel, Bytes::from_static(LINUX_METRICS_FIXTURE))?;
+            session.exit_status_request(channel, 0)?;
+            session.eof(channel)?;
+        } else {
+            session.channel_failure(channel)?;
+        }
+        session.close(channel)?;
         Ok(())
     }
 
@@ -578,6 +598,44 @@ async fn password_session_full_lifecycle() {
     h.manager.close(&s2.id);
     let (error, _) = s2.closed().await;
     assert!(error.is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn linux_server_metrics_are_streamed_from_a_read_only_exec_channel() {
+    let server = start_server(ServerConfig {
+        password: Some(PASSWORD.into()),
+        ..Default::default()
+    })
+    .await;
+    let h = Harness::new();
+    let mut s = h.open(h.target(None, server.port, AuthMethod::Password, None));
+    let (req, ..) = s.host_key_prompt().await;
+    h.respond(
+        &s,
+        &req,
+        PromptResponse::HostKey {
+            decision: HostKeyDecision::AcceptOnce,
+        },
+    );
+    let (req, _) = s.auth_prompt().await;
+    h.respond(&s, &req, creds(PASSWORD, false));
+    s.connected().await;
+
+    let metrics = s
+        .expect("server metrics", |event| match event {
+            SessionEvent::Metrics { metrics } => Some(*metrics),
+            _ => None,
+        })
+        .await;
+    assert_eq!(metrics.cpu_percent, None);
+    assert_eq!(metrics.memory_used_bytes, 1_048_576_000);
+    assert_eq!(metrics.memory_total_bytes, 2_097_152_000);
+    assert_eq!(metrics.disk_used_bytes, 25_600_000);
+    assert_eq!(metrics.disk_total_bytes, 102_400_000);
+    assert_eq!(metrics.uptime_seconds, 12_345);
+
+    h.manager.close(&s.id);
+    let _ = s.closed().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

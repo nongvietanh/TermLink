@@ -9,6 +9,7 @@
 //!   without an explicit answer from the user.
 
 pub mod local;
+pub mod metrics;
 pub mod shells;
 pub mod ssh;
 
@@ -122,20 +123,34 @@ pub enum SessionEvent {
         error: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
-    PromptClosed { request_id: String },
+    PromptClosed {
+        request_id: String,
+    },
     #[serde(rename_all = "camelCase")]
-    Banner { text: String },
+    Banner {
+        text: String,
+    },
     #[serde(rename_all = "camelCase")]
-    Connected { info: ConnectionInfo },
+    Connected {
+        info: ConnectionInfo,
+    },
+    Metrics {
+        metrics: metrics::HostMetrics,
+    },
+    MetricsUnavailable,
     #[serde(rename_all = "camelCase")]
     Exit {
         code: Option<u32>,
         signal: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
-    Error { error: AppError },
+    Error {
+        error: AppError,
+    },
     #[serde(rename_all = "camelCase")]
-    Closed { reason: String },
+    Closed {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]

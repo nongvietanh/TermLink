@@ -14,6 +14,7 @@ TermLink protects secrets and local data from accidental disclosure, untrusted p
 - The webview has a restrictive CSP, no remote script source and no arbitrary navigation or network API. Prototype freezing is disabled because it prevents the current React dependency tree from starting; CSP and the narrow IPC capability set remain the primary renderer boundaries.
 - Imported profiles use a versioned schema and never contain secret values. Destructive UI actions require a confirmation. Commands from snippets are sent only after an explicit Insert or Run action; configured destructive snippets ask again.
 - Keystrokes typed directly into a terminal are not recorded as command history. TermLink records commands only when it explicitly submits them through its snippet/history actions.
+- Linux server monitoring uses a compile-time, read-only SSH exec command with no user-controlled interpolation, polls every five seconds, and caps response data before parsing. It reads OS counters and root filesystem capacity only; it does not collect process lists or send telemetry to TermLink services. Exec-disabled or non-Linux servers report metrics as unavailable.
 - Debug builds use a separate data directory and `TermLink-dev` credential namespace to isolate development and smoke-test data from release data.
 
 ## Data stored locally
@@ -25,6 +26,7 @@ The SQLite database contains connection metadata, notes, tags, host public keys 
 - The first milestone is verified on Windows. macOS and Linux builds, credential-store behavior and local PTYs still need platform CI and manual validation.
 - SSH server certificates are currently treated as their presented public key. Certificate-authority trust and revocation are not configured; users should rely on ordinary known-host fingerprints.
 - Agent authentication is implemented for supported OpenSSH agent transports and Pageant, but it does not yet have a dedicated automated integration test.
+- Resource monitoring currently supports Linux servers with procfs, `cat`, `awk`-free proc counters, and `df`; other server operating systems and SSH accounts whose policy disables exec requests show an unavailable state.
 - The app has no SFTP transfer implementation, port forwarding, RDP or VNC support. The UI labels those areas unavailable.
 - The local SQLite database is not encrypted. Backups and profile exports may expose host names, usernames, notes and private-key file paths, although they never include saved passwords or passphrases.
 - When a user imports a profile that references a private-key path, connecting can cause TermLink to read that selected path. Review imported profiles before connecting.

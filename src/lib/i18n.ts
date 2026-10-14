@@ -172,6 +172,16 @@ const VI: Record<string, string> = {
   session: "phiên",
   sessions: "phiên",
   "TCP connect round-trip time": "Thời gian phản hồi kết nối TCP",
+  "Server CPU usage": "Mức sử dụng CPU máy chủ",
+  "Memory used": "Bộ nhớ đã dùng",
+  "Root disk used": "Dung lượng ổ đĩa gốc đã dùng",
+  Disk: "Ổ đĩa",
+  "Network download speed": "Tốc độ tải xuống mạng",
+  "Network upload speed": "Tốc độ tải lên mạng",
+  "Server uptime": "Thời gian máy chủ đã chạy",
+  "Linux server metrics could not be read over SSH.":
+    "Không thể đọc số liệu máy chủ Linux qua SSH.",
+  "Metrics unavailable": "Không có số liệu",
   "Secrets are stored in the system credential store":
     "Thông tin bí mật được lưu trong kho thông tin xác thực của hệ thống",
   "Host key has changed": "Khóa máy chủ đã thay đổi",

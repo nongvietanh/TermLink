@@ -43,6 +43,7 @@ flowchart LR
 3. During key exchange, `russh` calls the host-key handler. A known matching key continues. An unknown or changed key pauses the connection and sends a prompt with the SHA-256 fingerprint. Only an explicit user answer can accept it; a changed key can only be accepted by replacing the stored key.
 4. The auth loop supports password, keyboard-interactive, private keys (including passphrases) and SSH agents where available. An accepted credential is stored only after successful authentication and only when the user selected Save.
 5. Rust requests a PTY and interactive shell, then streams bytes and lifecycle events. The frontend feeds bytes directly into xterm.js and sends input and resize updates back over validated commands.
+6. While the SSH shell is connected, the backend opens a separate exec channel every five seconds and runs one fixed, read-only Linux metrics command. It parses `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `/proc/uptime` and `df -Pk /`, then sends typed metrics events to the status bar. The command contains no profile or user supplied values, and output is capped. Servers without Linux procfs or permission to run exec requests show metrics as unavailable; the interactive shell remains connected.
 
 The connection timeout does not count time spent waiting for a human security or credential prompt. Prompts expire, and session cancellation interrupts pending work.
 

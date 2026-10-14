@@ -14,6 +14,10 @@ use russh::{ChannelMsg, Disconnect, MethodKind, MethodSet};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
+use super::metrics::{
+    calculate_metrics, parse_linux_snapshot, LinuxSnapshot, LINUX_METRICS_COMMAND,
+    MAX_METRICS_OUTPUT,
+};
 use super::{
     AuthPromptKind, ConnectionInfo, HostKeyDecision, HostKeyStatusKind, PreviousHostKey,
     PromptField, PromptResponse, SessionCommand, SessionCtx, SessionEvent, SessionState,
@@ -435,10 +439,38 @@ async fn run_inner(
     let shell_confirmed = AtomicBool::new(false);
     let mut exit_code: Option<u32> = None;
     let mut exit_signal: Option<String> = None;
+    let mut metrics_interval = tokio::time::interval(Duration::from_secs(5));
+    metrics_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut previous_metrics: Option<(LinuxSnapshot, Instant)> = None;
+    let mut metrics_failures = 0_u8;
+    let mut metrics_monitoring = true;
     let reason: String;
     loop {
         let msg = tokio::select! {
             m = reader.wait() => m,
+            _ = metrics_interval.tick(), if metrics_monitoring => {
+                let sampled_at = Instant::now();
+                match collect_linux_snapshot(&handle).await {
+                    Some(snapshot) => {
+                        metrics_failures = 0;
+                        let elapsed = previous_metrics
+                            .map(|(_, at)| sampled_at.saturating_duration_since(at))
+                            .unwrap_or_default();
+                        let previous = previous_metrics.map(|(previous, _)| previous);
+                        let metrics = calculate_metrics(previous, snapshot, elapsed);
+                        previous_metrics = Some((snapshot, sampled_at));
+                        ctx.sink.event(SessionEvent::Metrics { metrics });
+                    }
+                    None => {
+                        metrics_failures += 1;
+                        if metrics_failures >= 3 {
+                            metrics_monitoring = false;
+                            ctx.sink.event(SessionEvent::MetricsUnavailable);
+                        }
+                    }
+                }
+                continue;
+            }
             _ = ctx.cancel.cancelled() => {
                 reason = "Disconnected".into();
                 break;
@@ -485,6 +517,51 @@ async fn run_inner(
     let _ = writer.close().await;
     let _ = handle.disconnect(Disconnect::ByApplication, "", "en").await;
     Ok(reason)
+}
+
+async fn collect_linux_snapshot(handle: &Handle<ClientHandler>) -> Option<LinuxSnapshot> {
+    let open = tokio::time::timeout(Duration::from_secs(3), handle.channel_open_session())
+        .await
+        .ok()?
+        .ok()?;
+    let mut channel = open;
+    channel
+        .exec(true, LINUX_METRICS_COMMAND.as_bytes())
+        .await
+        .ok()?;
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    let mut output = Vec::with_capacity(2048);
+    let mut exit_status = None;
+    loop {
+        let message = tokio::select! {
+            _ = tokio::time::sleep_until(deadline) => {
+                let _ = channel.close().await;
+                return None;
+            }
+            message = channel.wait() => message?,
+        };
+        match message {
+            ChannelMsg::Data { data } | ChannelMsg::ExtendedData { data, .. } => {
+                if output.len().saturating_add(data.len()) > MAX_METRICS_OUTPUT {
+                    let _ = channel.close().await;
+                    return None;
+                }
+                output.extend_from_slice(&data);
+            }
+            ChannelMsg::ExitStatus { exit_status: code } => exit_status = Some(code),
+            ChannelMsg::Failure => {
+                let _ = channel.close().await;
+                return None;
+            }
+            ChannelMsg::Close => break,
+            _ => {}
+        }
+    }
+    if exit_status.is_some_and(|code| code != 0) {
+        return None;
+    }
+    parse_linux_snapshot(&output)
 }
 
 async fn with_cancel<T>(

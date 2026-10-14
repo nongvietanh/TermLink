@@ -5,6 +5,7 @@ import type {
   AppError,
   AuthPromptEvent,
   ConnectionInfo,
+  HostMetrics,
   HostKeyPromptEvent,
   OpenRequest,
   SessionKind,
@@ -28,6 +29,8 @@ export interface SessionTab {
   state: SessionState | "idle";
   message: string | null;
   info: ConnectionInfo | null;
+  metrics: HostMetrics | null;
+  metricsUnavailable: boolean;
   error: AppError | null;
   exit: { code: number | null; signal: string | null } | null;
   closedReason: string | null;

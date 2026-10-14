@@ -113,6 +113,18 @@ impl server::Handler for DevShell {
         Ok(())
     }
 
+    async fn exec_request(
+        &mut self,
+        channel: ChannelId,
+        _command: &[u8],
+        session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        // This development server intentionally never executes remote commands.
+        session.channel_failure(channel)?;
+        session.close(channel)?;
+        Ok(())
+    }
+
     async fn window_change_request(
         &mut self,
         _channel: ChannelId,
